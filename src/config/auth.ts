@@ -1,19 +1,16 @@
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { betterAuth } from "better-auth";
 import { jwt } from "better-auth/plugins";
+import { env } from "./env";
 import { authDatabase } from "./database";
 import { User } from "../modules/users/user.model";
 
-const baseURL = process.env.BETTER_AUTH_URL;
-const secret = process.env.BETTER_AUTH_SECRET;
-if (!baseURL || !secret) throw new Error("BETTER_AUTH_URL and BETTER_AUTH_SECRET are required");
-
 export const auth = betterAuth({
   appName: "SalonBook",
-  baseURL,
-  secret,
+  baseURL: env.BETTER_AUTH_URL,
+  secret: env.BETTER_AUTH_SECRET,
   database: mongodbAdapter(authDatabase),
-  trustedOrigins: [process.env.CLIENT_ORIGIN ?? "http://localhost:3000"],
+  trustedOrigins: [env.CLIENT_ORIGIN],
   emailAndPassword: { enabled: true, minPasswordLength: 8 },
   user: {
     additionalFields: {

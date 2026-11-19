@@ -20,7 +20,7 @@ const appointmentSchema = new Schema<AppointmentRecord>(
     serviceSnapshot: {
       name: { type: String, required: true },
       durationMinutes: { type: Number, required: true, min: 5 },
-      price: { type: Number, required: true, min: 0 },
+      price: { type: Number, required: true, min: 0.01 },
     },
     startsAt: { type: Date, required: true, index: true },
     customerNote: { type: String, trim: true, maxlength: 500 },

@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { z } from "zod";
+import { env } from "../../config/env";
 
 const uploadSchema = z.object({
   image: z.string().min(1),
@@ -8,7 +9,7 @@ const uploadSchema = z.object({
 }).strict();
 
 export async function uploadImage(req: Request, res: Response, next: NextFunction) {
-  const apiKey = process.env.IMGBB_API_KEY;
+  const apiKey = env.IMGBB_API_KEY;
   if (!apiKey) return res.status(503).json({ data: null, error: { message: "Image upload is not configured. Set IMGBB_API_KEY on the server." } });
   const parsed = uploadSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ data: null, error: { message: "Provide a JPEG, PNG, or WebP image." } });

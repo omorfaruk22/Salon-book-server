@@ -2,6 +2,7 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import { authDatabase, connectDatabase, mongoClient } from "../config/database";
 import { User } from "../modules/users/user.model";
+import { sanitizeLogMessage } from "../utils/sanitize";
 
 async function main() {
   const email = process.argv[2]?.trim().toLowerCase();
@@ -20,5 +21,5 @@ async function main() {
 }
 
 main()
-  .catch((error) => { console.error(error instanceof Error ? error.message : error); process.exitCode = 1; })
+  .catch((error) => { console.error(sanitizeLogMessage(error instanceof Error ? error.message : String(error))); process.exitCode = 1; })
   .finally(async () => { await Promise.allSettled([mongoClient.close(), mongoose.disconnect()]); });

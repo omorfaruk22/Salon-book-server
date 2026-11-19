@@ -20,7 +20,7 @@ const serviceSchema = new Schema<ServiceRecord>(
     description: { type: String, required: true, trim: true, maxlength: 2000 },
     category: { type: String, required: true, trim: true, lowercase: true, maxlength: 60, index: true },
     durationMinutes: { type: Number, required: true, min: 5, max: 600 },
-    price: { type: Number, required: true, min: 0, max: 1000000 },
+    price: { type: Number, required: true, min: 0.01, max: 1000000 },
     imageUrl: { type: String, trim: true, maxlength: 2048 },
     isActive: { type: Boolean, default: true, index: true },
   },

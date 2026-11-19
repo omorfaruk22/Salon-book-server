@@ -5,7 +5,7 @@ const serviceFields = {
   description: z.string().trim().min(10).max(2000),
   category: z.string().trim().min(2).max(60),
   durationMinutes: z.coerce.number().int().min(5).max(600),
-  price: z.coerce.number().min(0).max(1000000),
+  price: z.coerce.number().positive().max(1000000),
   imageUrl: z.union([z.url({ protocol: /^https?$/ }), z.literal("")]).optional(),
 };
 

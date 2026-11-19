@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { Types } from "mongoose";
+import { env } from "../config/env";
 import { User, UserRecord } from "../modules/users/user.model";
 
 export type AppRole = "customer" | "admin";
@@ -8,8 +9,7 @@ export interface AuthenticatedRequest extends Request {
   authUser?: { id: string; profileId: string; role: AppRole };
 }
 
-const authURL = process.env.BETTER_AUTH_URL;
-if (!authURL) throw new Error("BETTER_AUTH_URL is required");
+const authURL = env.BETTER_AUTH_URL;
 const jwks = createRemoteJWKSet(new URL("/api/auth/jwks", authURL));
 
 export async function authenticate(req: Request, res: Response, next: NextFunction) {

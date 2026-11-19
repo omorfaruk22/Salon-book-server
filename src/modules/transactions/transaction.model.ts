@@ -19,7 +19,7 @@ export interface TransactionRecord {
 
 const transactionSchema = new Schema<TransactionRecord>(
   {
-    appointmentId: { type: Schema.Types.ObjectId, ref: "Appointment", required: true, index: true },
+    appointmentId: { type: Schema.Types.ObjectId, ref: "Appointment", required: true },
     customerId: { type: String, required: true, index: true },
     serviceName: { type: String, required: true, trim: true },
     amount: { type: Number, required: true, min: 0 },

@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { isValidObjectId } from "mongoose";
 import { AuthenticatedRequest } from "../../middleware/authenticate";
 import { getStripe } from "../../config/stripe";
+import { env } from "../../config/env";
 import { checkoutSchema } from "./transaction.validation";
 import { createCheckout, getTransaction, listTransactions, processStripeEvent } from "./transaction.service";
 
@@ -50,7 +51,7 @@ export async function webhook(req: Request, res: Response) {
   let event: import("stripe").Stripe.Event;
   try {
     const stripe = getStripe();
-    const secret = process.env.STRIPE_WEBHOOK_SECRET;
+    const secret = env.STRIPE_WEBHOOK_SECRET;
     if (!secret) return res.status(503).send("Stripe webhook is not configured");
     event = stripe.webhooks.constructEvent(req.body, signature, secret);
   } catch (error) {
@@ -58,5 +59,5 @@ export async function webhook(req: Request, res: Response) {
     return res.status(400).send("Invalid Stripe webhook signature");
   }
   try { await processStripeEvent(event); return res.json({ received: true }); }
-  catch (error) { console.error("Stripe webhook processing failed", error); return res.status(500).send("Webhook processing failed"); }
+  catch { console.error("[webhook:error] Stripe event processing failed"); return res.status(500).send("Webhook processing failed"); }
 }

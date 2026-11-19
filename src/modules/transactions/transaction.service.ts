@@ -5,6 +5,7 @@ import { Appointment } from "../appointments/appointment.model";
 import { User } from "../users/user.model";
 import { Transaction } from "./transaction.model";
 import { Service } from "../services/service.model";
+import { env } from "../../config/env";
 
 function httpError(status: number, message: string) { return Object.assign(new Error(message), { status }); }
 
@@ -67,7 +68,7 @@ export async function createCheckout(customerId: string, appointmentId: string) 
   }
 
   const customer = await User.findOne({ authUserId: customerId }).select("email").lean();
-  const origin = (process.env.CLIENT_ORIGIN ?? "http://localhost:3000").replace(/\/$/, "");
+  const origin = env.CLIENT_ORIGIN;
   try {
     const session = await stripe.checkout.sessions.create(
       {

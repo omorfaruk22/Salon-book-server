@@ -16,7 +16,7 @@ export interface UserRecord {
 
 const userSchema = new Schema<UserRecord>(
   {
-    authUserId: { type: String, required: true, unique: true, index: true },
+    authUserId: { type: String, required: true, unique: true },
     name: { type: String, required: true, trim: true, maxlength: 100 },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, maxlength: 254 },
     phone: { type: String, trim: true, maxlength: 20 },

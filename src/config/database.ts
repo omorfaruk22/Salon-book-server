@@ -1,18 +1,49 @@
 import { MongoClient } from "mongodb";
 import mongoose from "mongoose";
+import { env } from "./env";
 
-const uri = process.env.MONGODB_URI;
-if (!uri) throw new Error("MONGODB_URI is required");
-
+const uri = env.MONGODB_URI;
+const databaseName = decodeURIComponent(new URL(uri).pathname.slice(1)) || "salonbook";
 export const mongoClient = new MongoClient(uri);
-const databaseName = new URL(uri).pathname.slice(1) || "salonbook";
 export const authDatabase = mongoClient.db(databaseName);
 
+export type DatabaseStatus = "disconnected" | "connecting" | "connected";
+let databaseStatus: DatabaseStatus = "disconnected";
+let connectionPromise: Promise<void> | null = null;
+
+export function getDatabaseStatus(): DatabaseStatus {
+  if (databaseStatus === "connected" && mongoose.connection.readyState !== 1) return "disconnected";
+  return databaseStatus;
+}
+
 export async function connectDatabase() {
-  await mongoClient.connect();
-  await authDatabase.command({ ping: 1 });
-  const mongooseUri = new URL(uri!);
-  if (!mongooseUri.pathname || mongooseUri.pathname === "/") mongooseUri.pathname = "/salonbook";
-  await mongoose.connect(mongooseUri.toString(), { maxPoolSize: 10 });
-  console.log(`Connected to MongoDB database: ${databaseName}`);
+  if (databaseStatus === "connected") return;
+  if (connectionPromise) return connectionPromise;
+
+  databaseStatus = "connecting";
+  connectionPromise = (async () => {
+    try {
+      await mongoClient.connect();
+      await authDatabase.command({ ping: 1 });
+      await mongoose.connect(uri, { dbName: databaseName, maxPoolSize: 10 });
+      databaseStatus = "connected";
+      console.info(`Connected to MongoDB database: ${databaseName}`);
+    } catch (error) {
+      databaseStatus = "disconnected";
+      await Promise.allSettled([mongoose.disconnect(), mongoClient.close()]);
+      throw error;
+    }
+  })();
+
+  try {
+    await connectionPromise;
+  } finally {
+    if (getDatabaseStatus() !== "connected") connectionPromise = null;
+  }
+}
+
+export async function closeDatabase() {
+  databaseStatus = "disconnected";
+  connectionPromise = null;
+  await Promise.allSettled([mongoose.disconnect(), mongoClient.close()]);
 }
