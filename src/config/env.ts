@@ -20,7 +20,10 @@ const envSchema = z.object({
   IMGBB_API_KEY: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
-});
+}).refine(
+  (value) => Boolean(value.GOOGLE_CLIENT_ID) === Boolean(value.GOOGLE_CLIENT_SECRET),
+  { path: ["GOOGLE_CLIENT_SECRET"], message: "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must either both be set or both be empty" },
+);
 
 const parsed = envSchema.safeParse({
   NODE_ENV: process.env.NODE_ENV,
