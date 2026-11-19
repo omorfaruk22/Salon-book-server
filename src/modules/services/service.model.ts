@@ -28,6 +28,8 @@ const serviceSchema = new Schema<ServiceRecord>(
 );
 
 serviceSchema.index({ isActive: 1, category: 1, price: 1 });
+serviceSchema.index({ isActive: 1, name: 1, _id: 1 });
+serviceSchema.index({ isActive: 1, price: 1, name: 1, _id: 1 });
 serviceSchema.index({ name: "text", description: "text", category: "text" });
 
 export const Service: Model<ServiceRecord> = (models.Service as Model<ServiceRecord> | undefined) ?? model<ServiceRecord>("Service", serviceSchema);

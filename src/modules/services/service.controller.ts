@@ -1,19 +1,25 @@
 import type { NextFunction, Request, Response } from "express";
 import { isValidObjectId } from "mongoose";
 import { browseServices, createService, deleteService, getActiveService, listAllServices, setServiceStatus, updateService } from "./service.service";
-import { createServiceSchema, serviceStatusSchema, updateServiceSchema } from "./service.validation";
+import { browseServicesQuerySchema, createServiceSchema, serviceStatusSchema, updateServiceSchema } from "./service.validation";
 
 function badRequest(res: Response, message: string) {
   return res.status(400).json({ data: null, error: { message } });
 }
 
 export async function browse(req: Request, res: Response, next: NextFunction) {
+  const parsed = browseServicesQuerySchema.safeParse(req.query);
+  if (!parsed.success) return badRequest(res, "Invalid services query parameters. Use a search up to 100 characters, a category up to 60 characters, sort=default|price-asc|price-desc, page of at least 1, and limit from 1 to 48.");
   try {
-    const page = Math.max(1, Number.parseInt(String(req.query.page ?? "1"), 10) || 1);
-    const limit = Math.min(48, Math.max(1, Number.parseInt(String(req.query.limit ?? "12"), 10) || 12));
-    const sort = ["price_asc", "price_desc"].includes(String(req.query.sort)) ? String(req.query.sort) : "name";
-    const result = await browseServices({ q: String(req.query.q ?? "").trim().slice(0, 100), category: String(req.query.category ?? "").trim().slice(0, 60), sort, page, limit });
-    res.json({ data: result.services, error: null, meta: { page, limit, total: result.total, categories: result.categories } });
+    const result = await browseServices(parsed.data);
+    res.json({ data: result.services, error: null, meta: {
+      page: parsed.data.page,
+      limit: parsed.data.limit,
+      total: result.total,
+      totalPages: Math.ceil(result.total / parsed.data.limit),
+      activeTotal: result.activeTotal,
+      categories: result.categories,
+    } });
   } catch (error) { next(error); }
 }
 

@@ -1,29 +1,30 @@
 import { FilterQuery } from "mongoose";
 import { Service, ServiceRecord } from "./service.model";
-import { CreateServiceInput } from "./service.validation";
+import { BrowseServicesQuery, CreateServiceInput } from "./service.validation";
 
 function makeSlug(value: string) {
   return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-export async function browseServices(query: { q?: string; category?: string; sort?: string; page: number; limit: number }) {
+export async function browseServices(query: BrowseServicesQuery) {
   const filter: FilterQuery<ServiceRecord> = { isActive: true };
-  if (query.category) filter.category = query.category.toLowerCase();
-  if (query.q) {
-    const safeSearch = query.q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    filter.$or = [
-      { name: { $regex: safeSearch, $options: "i" } },
-      { description: { $regex: safeSearch, $options: "i" } },
-      { category: { $regex: safeSearch, $options: "i" } },
-    ];
+  if (query.category) filter.category = query.category;
+  if (query.search) {
+    const safeSearch = query.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    filter.name = { $regex: safeSearch, $options: "i" };
   }
-  const sort: Record<string, 1 | -1> = query.sort === "price_asc" ? { price: 1, name: 1 } : query.sort === "price_desc" ? { price: -1, name: 1 } : { name: 1 };
-  const [services, total, categoryDocs] = await Promise.all([
+  const sort: Record<string, 1 | -1> = query.sort === "price-asc"
+    ? { price: 1, name: 1, _id: 1 }
+    : query.sort === "price-desc"
+      ? { price: -1, name: -1, _id: -1 }
+      : { name: 1, _id: 1 };
+  const [services, total, activeTotal, categoryDocs] = await Promise.all([
     Service.find(filter).sort(sort).skip((query.page - 1) * query.limit).limit(query.limit).lean(),
     Service.countDocuments(filter),
+    Service.countDocuments({ isActive: true }),
     Service.distinct("category", { isActive: true }),
   ]);
-  return { services, total, categories: categoryDocs.sort() };
+  return { services, total, activeTotal, categories: categoryDocs.sort() };
 }
 
 export async function getActiveService(slug: string) {
