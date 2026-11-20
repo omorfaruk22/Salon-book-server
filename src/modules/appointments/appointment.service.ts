@@ -1,6 +1,8 @@
-import { Types } from "mongoose";
+import { Types, type PipelineStage } from "mongoose";
 import { Service, ServiceRecord } from "../services/service.model";
+import { User } from "../users/user.model";
 import { Appointment, AppointmentRecord, AppointmentStatus } from "./appointment.model";
+import type { AdminAppointmentsQuery } from "./appointment.validation";
 import {
   APPOINTMENT_TIME_SLOTS,
   AppointmentTimeSlot,
@@ -157,7 +159,7 @@ export async function getMyAppointment(customerId: string, id: string) {
   return enriched;
 }
 
-async function enrichAppointmentServiceSnapshots(appointments: (AppointmentRecord & { _id: Types.ObjectId })[]) {
+export async function enrichAppointmentServiceSnapshots(appointments: (AppointmentRecord & { _id: Types.ObjectId })[]) {
   const serviceIds = [...new Set(appointments
     .filter(({ serviceSnapshot }) => !serviceSnapshot.category || serviceSnapshot.description === undefined || serviceSnapshot.imageUrl === undefined)
     .map(({ serviceId }) => String(serviceId)))];
@@ -179,12 +181,102 @@ async function enrichAppointmentServiceSnapshots(appointments: (AppointmentRecor
   });
 }
 
-export async function listAdminAppointments(status?: string) {
-  const filter = status && ["pending", "confirmed", "cancelled", "completed"].includes(status) ? { status } : {};
-  return Appointment.find(filter).sort({ startsAt: 1 }).lean();
+export async function listAdminAppointments(query: AdminAppointmentsQuery) {
+  const match: Record<string, unknown> = {};
+  if (query.status !== "all") match.status = query.status;
+  if (query.paymentStatus !== "all") match.paymentStatus = query.paymentStatus;
+  const pipeline: PipelineStage[] = [
+    { $match: match },
+    { $lookup: { from: User.collection.name, localField: "customerId", foreignField: "authUserId", as: "customerProfile" } },
+    { $unwind: { path: "$customerProfile", preserveNullAndEmptyArrays: true } },
+  ];
+  if (query.search) {
+    const escaped = query.search.replace(/[.*+?^$()|[\]\\]/g, "\\$&").replace(/[{}]/g, "\\$&");
+    const searchRegex = { $regex: escaped, $options: "i" };
+    pipeline.push(
+      { $addFields: { appointmentIdText: { $toString: "$_id" } } },
+      { $match: { $or: [
+        { "customerProfile.name": searchRegex },
+        { "customerProfile.email": searchRegex },
+        { "serviceSnapshot.name": searchRegex },
+        { appointmentIdText: searchRegex },
+      ] } },
+    );
+  }
+  const sort: Record<string, 1 | -1> = query.sort === "oldest" ? { createdAt: 1, _id: 1 }
+    : query.sort === "appointment-asc" ? { startsAt: 1 as const, _id: 1 as const }
+      : query.sort === "appointment-desc" ? { startsAt: -1 as const, _id: -1 as const }
+        : { createdAt: -1 as const, _id: -1 as const };
+  pipeline.push({
+    $facet: {
+      appointments: [
+        { $sort: sort },
+        { $skip: (query.page - 1) * query.limit },
+        { $limit: query.limit },
+        { $project: {
+          _id: { $toString: "$_id" },
+          serviceId: { $toString: "$serviceId" },
+          serviceSnapshot: 1,
+          startsAt: 1,
+          appointmentDate: 1,
+          timeSlot: 1,
+          customerNote: 1,
+          status: 1,
+          paymentStatus: 1,
+          cancelledBy: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          customer: {
+            name: { $ifNull: ["$customerProfile.name", "Customer account unavailable"] },
+            email: { $ifNull: ["$customerProfile.email", ""] },
+            phone: { $ifNull: ["$customerProfile.phone", ""] },
+            imageUrl: { $ifNull: ["$customerProfile.imageUrl", ""] },
+          },
+        } },
+      ],
+      total: [{ $count: "count" }],
+    },
+  });
+
+  const [result, totalAppointments, pendingAppointments, confirmedAppointments, cancelledAppointments] = await Promise.all([
+    Appointment.aggregate<{ appointments: (AppointmentRecord & { _id: string; serviceId: string; customer: { name: string; email: string; phone: string; imageUrl: string } })[]; total: { count: number }[] }>(pipeline).exec(),
+    Appointment.countDocuments({}).exec(),
+    Appointment.countDocuments({ status: "pending" }).exec(),
+    Appointment.countDocuments({ status: "confirmed" }).exec(),
+    Appointment.countDocuments({ status: "cancelled" }).exec(),
+  ]);
+  const pageResult = result[0] ?? { appointments: [], total: [] };
+  const appointments = await enrichAppointmentServiceSnapshots(pageResult.appointments as unknown as (AppointmentRecord & { _id: Types.ObjectId })[]);
+  return {
+    appointments,
+    total: pageResult.total[0]?.count ?? 0,
+    page: query.page,
+    limit: query.limit,
+    totalPages: Math.ceil((pageResult.total[0]?.count ?? 0) / query.limit),
+    stats: { totalAppointments, pendingAppointments, confirmedAppointments, cancelledAppointments },
+  };
 }
 
 export async function getAppointment(id: string) { return await Appointment.findById(id).lean().exec() as unknown as (AppointmentRecord & { _id: Types.ObjectId }) | null; }
+
+export async function getAdminAppointment(id: string) {
+  const appointment = await getAppointment(id);
+  if (!appointment) return null;
+  const [enriched, customer] = await Promise.all([
+    enrichAppointmentServiceSnapshots([appointment]),
+    User.findOne({ authUserId: appointment.customerId }).select("name email phone imageUrl").lean().exec(),
+  ]);
+  const { customerId: _customerId, ...safeAppointment } = enriched[0];
+  return {
+    ...safeAppointment,
+    customer: customer ? {
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone ?? "",
+      imageUrl: customer.imageUrl ?? "",
+    } : { name: "Customer account unavailable", email: "", phone: "", imageUrl: "" },
+  };
+}
 
 export async function cancelCustomerAppointment(id: string, customerId: string) {
   const appointment = await Appointment.findOneAndUpdate(

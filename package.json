@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/admin-service-validation.test.ts tests/service-deletion.test.ts tests/admin-authorization.test.ts",
+    "test": "tsx --test tests/admin-service-validation.test.ts tests/service-deletion.test.ts tests/admin-authorization.test.ts tests/admin-management-validation.test.ts",
     "admin:promote": "tsx src/scripts/promote-admin.ts",
     "seed:services": "tsx src/scripts/seed-services.ts"
   },

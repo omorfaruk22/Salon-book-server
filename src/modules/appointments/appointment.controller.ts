@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { AuthenticatedRequest } from "../../middleware/authenticate";
-import { adminStatusSchema, appointmentAvailabilityQuerySchema, createAppointmentSchema, myAppointmentsQuerySchema } from "./appointment.validation";
-import { cancelCustomerAppointment, confirmAppointment, getAppointment, getAppointmentAvailability, getCustomerAppointmentStats, getMyAppointment, isAppointmentId, listAdminAppointments, listCustomerAppointments, listMyAppointments, requestAppointment, setAdminStatus } from "./appointment.service";
+import { appointmentAvailabilityQuerySchema, createAppointmentSchema, myAppointmentsQuerySchema } from "./appointment.validation";
+import { cancelCustomerAppointment, getAppointment, getAppointmentAvailability, getCustomerAppointmentStats, getMyAppointment, isAppointmentId, listCustomerAppointments, listMyAppointments, requestAppointment } from "./appointment.service";
 
 function errorStatus(error: unknown) { return typeof error === "object" && error !== null && "status" in error ? Number((error as { status: unknown }).status) : 500; }
 function message(error: unknown) { return error instanceof Error ? error.message : "Internal server error"; }
@@ -54,10 +54,6 @@ export async function myAppointmentDetails(req: Request, res: Response, next: Ne
   } catch (error) { next(error); }
 }
 
-export async function all(req: Request, res: Response, next: NextFunction) {
-  try { return res.json({ data: await listAdminAppointments(typeof req.query.status === "string" ? req.query.status : undefined), error: null }); } catch (error) { next(error); }
-}
-
 export async function details(req: Request, res: Response, next: NextFunction) {
   const id = idOrBadRequest(req, res); if (!id) return;
   try {
@@ -72,19 +68,5 @@ export async function details(req: Request, res: Response, next: NextFunction) {
 export async function cancelMine(req: Request, res: Response, next: NextFunction) {
   const id = idOrBadRequest(req, res); if (!id) return;
   try { return res.json({ data: await cancelCustomerAppointment(id, (req as AuthenticatedRequest).authUser!.id), error: null }); }
-  catch (error) { if (errorStatus(error) < 500) return res.status(errorStatus(error)).json({ data: null, error: { message: message(error) } }); next(error); }
-}
-
-export async function confirm(req: Request, res: Response, next: NextFunction) {
-  const id = idOrBadRequest(req, res); if (!id) return;
-  try { return res.json({ data: await confirmAppointment(id), error: null }); }
-  catch (error) { if (errorStatus(error) < 500) return res.status(errorStatus(error)).json({ data: null, error: { message: message(error) } }); next(error); }
-}
-
-export async function changeStatus(req: Request, res: Response, next: NextFunction) {
-  const id = idOrBadRequest(req, res); if (!id) return;
-  const parsed = adminStatusSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ data: null, error: { message: "Status must be cancelled or completed" } });
-  try { return res.json({ data: await setAdminStatus(id, parsed.data.status), error: null }); }
   catch (error) { if (errorStatus(error) < 500) return res.status(errorStatus(error)).json({ data: null, error: { message: message(error) } }); next(error); }
 }

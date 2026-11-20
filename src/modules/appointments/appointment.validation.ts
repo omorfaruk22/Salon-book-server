@@ -22,3 +22,16 @@ export const myAppointmentsQuerySchema = z.object({
 }).strict();
 
 export const adminStatusSchema = z.object({ status: z.enum(["cancelled", "completed"]) }).strict();
+
+const positiveIntegerQuery = z.string().regex(/^[1-9]\d*$/).transform(Number).refine(Number.isSafeInteger);
+
+export const adminAppointmentsQuerySchema = z.object({
+  search: z.string().trim().max(100).default(""),
+  status: z.enum(["all", "pending", "confirmed", "cancelled", "completed"]).default("all"),
+  paymentStatus: z.enum(["all", "paid", "unpaid"]).default("all"),
+  sort: z.enum(["newest", "oldest", "appointment-asc", "appointment-desc"]).default("newest"),
+  page: z.string().default("1").pipe(positiveIntegerQuery),
+  limit: z.string().default("10").pipe(positiveIntegerQuery.refine((value) => value <= 50)),
+}).strict().transform((query) => ({ ...query, search: query.search.trim() }));
+
+export type AdminAppointmentsQuery = z.infer<typeof adminAppointmentsQuerySchema>;
