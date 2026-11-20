@@ -2,6 +2,7 @@ import { Types, type PipelineStage } from "mongoose";
 import { Service, ServiceRecord } from "../services/service.model";
 import { User } from "../users/user.model";
 import { Appointment, AppointmentRecord, AppointmentStatus } from "./appointment.model";
+import { reconcileCustomerAppointmentsPayments } from "../transactions/transaction.service";
 import type { AdminAppointmentsQuery } from "./appointment.validation";
 import {
   APPOINTMENT_TIME_SLOTS,
@@ -111,7 +112,11 @@ export async function requestAppointment(customerId: string, input: { serviceId:
 }
 
 export async function listCustomerAppointments(customerId: string) {
-  return Appointment.find({ customerId }).sort({ startsAt: -1 }).lean();
+  const filter = { customerId };
+  let appointments = await Appointment.find(filter).sort({ startsAt: -1 }).lean().exec();
+  const reconciled = await reconcileCustomerAppointmentsPayments(customerId, appointments.map((appointment) => String(appointment._id)));
+  if (reconciled) appointments = await Appointment.find(filter).sort({ startsAt: -1 }).lean().exec();
+  return appointments;
 }
 
 export async function getCustomerAppointmentStats(customerId: string) {
@@ -144,16 +149,23 @@ export async function listMyAppointments(customerId: string, input: { status?: "
     filter.$or = searchConditions;
   }
   const direction = input.sort === "oldest" ? 1 : -1;
-  const [appointments, total] = await Promise.all([
+  let [appointments, total] = await Promise.all([
     Appointment.find(filter).sort({ createdAt: direction, _id: direction }).skip((input.page - 1) * input.limit).limit(input.limit).lean().exec(),
     Appointment.countDocuments(filter).exec(),
   ]);
+  const reconciled = await reconcileCustomerAppointmentsPayments(customerId, appointments.map((appointment) => String(appointment._id)));
+  if (reconciled) {
+    appointments = await Appointment.find(filter).sort({ createdAt: direction, _id: direction }).skip((input.page - 1) * input.limit).limit(input.limit).lean().exec();
+  }
   const enrichedAppointments = await enrichAppointmentServiceSnapshots(appointments as unknown as (AppointmentRecord & { _id: Types.ObjectId })[]);
   return { appointments: enrichedAppointments, total, page: input.page, limit: input.limit, totalPages: Math.ceil(total / input.limit) };
 }
 
 export async function getMyAppointment(customerId: string, id: string) {
-  const appointment = await Appointment.findOne({ _id: id, customerId }).lean().exec() as unknown as (AppointmentRecord & { _id: Types.ObjectId }) | null;
+  let appointment = await Appointment.findOne({ _id: id, customerId }).lean().exec() as unknown as (AppointmentRecord & { _id: Types.ObjectId }) | null;
+  if (!appointment) return null;
+  const reconciled = await reconcileCustomerAppointmentsPayments(customerId, [String(appointment._id)]);
+  if (reconciled) appointment = await Appointment.findOne({ _id: id, customerId }).lean().exec() as unknown as (AppointmentRecord & { _id: Types.ObjectId }) | null;
   if (!appointment) return null;
   const [enriched] = await enrichAppointmentServiceSnapshots([appointment]);
   return enriched;
@@ -306,7 +318,12 @@ export async function confirmAppointment(id: string) {
   try {
     const confirmed = await Appointment.findOneAndUpdate(
       { _id: appointment._id, status: "pending" },
-      { $set: { status: "confirmed", slotReserved: true, reservedSlotKeys: getReservedMinuteKeys(appointment.startsAt, appointment.serviceSnapshot.durationMinutes) } },
+      { $set: {
+        status: "confirmed",
+        slotReserved: true,
+        reservedSlotKeys: getReservedMinuteKeys(appointment.startsAt, appointment.serviceSnapshot.durationMinutes),
+        ...(appointment.paymentStatus ? {} : { paymentStatus: "unpaid" }),
+      } },
       { new: true, runValidators: true },
     ).exec();
     if (!confirmed) throw httpError(409, "This appointment has already changed");

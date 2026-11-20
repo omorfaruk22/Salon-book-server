@@ -15,7 +15,7 @@ export interface TransactionRecord {
   providerPaymentIntentId?: string;
   paymentMethod?: string;
   status: TransactionStatus;
-  /** Stripe event IDs are appended with an atomic $addToSet inside the payment transaction. */
+  /** Processed Stripe event IDs and server-side reconciliation markers for paid sessions. */
   stripeEventIds: string[];
   paidAt?: Date;
   createdAt: Date;

@@ -36,7 +36,9 @@ function policyError(message: string) {
 export function assertAppointmentPayable(appointment: PayableAppointment, customerId: string) {
   if (appointment.customerId !== customerId) throw policyError("You cannot pay for another customer’s appointment.");
   if (appointment.status !== "confirmed") throw policyError("Only confirmed appointments can be paid.");
-  if (appointment.paymentStatus !== "unpaid") throw policyError("This appointment is not eligible for another payment.");
+  if (appointment.paymentStatus !== undefined && appointment.paymentStatus !== "unpaid") {
+    throw policyError("This appointment is not eligible for another payment.");
+  }
 }
 
 export function toStripeMinorUnits(amount: number, currency = CHECKOUT_CURRENCY) {

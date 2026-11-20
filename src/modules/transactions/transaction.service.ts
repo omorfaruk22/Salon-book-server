@@ -108,7 +108,12 @@ export async function createCheckout(customerId: string, appointmentId: string) 
     catch { throw httpError(502, "Could not check the existing Stripe Checkout. Please try again shortly."); }
     assertSessionMatchesTransaction(existingSession, attempt as unknown as TransactionDocument);
     if (existingSession.status === "open" && existingSession.url) return { url: existingSession.url };
-    if (existingSession.status === "complete") return { processing: true, sessionId: existingSession.id };
+    if (existingSession.status === "complete") {
+      if (existingSession.payment_status === "paid") {
+        await markCheckoutPaid(attempt._id, existingSession, "reconcile:" + existingSession.id);
+      }
+      return { processing: true, sessionId: existingSession.id };
+    }
     await Transaction.updateOne({ _id: attempt._id, status: "pending" }, { $set: { status: "failed" } }).exec();
     attempt = await getOrCreatePendingTransaction(appointment as unknown as TransactionDocument, customerId);
   }
@@ -182,12 +187,52 @@ export async function createCheckout(customerId: string, appointmentId: string) 
   }
 }
 
+async function reconcileStripeTransaction(transaction: TransactionDocument, knownSession?: Stripe.Checkout.Session) {
+  if (!["pending", "failed"].includes(transaction.status) || !transaction.providerSessionId) return false;
+  try {
+    const session = knownSession ?? await getStripe().checkout.sessions.retrieve(transaction.providerSessionId);
+    assertSessionMatchesTransaction(session, transaction);
+    if (session.status !== "complete" || session.payment_status !== "paid") return false;
+    await markCheckoutPaid(transaction._id, session, "reconcile:" + session.id);
+    return true;
+  } catch (error) {
+    const errorName = error instanceof Error ? error.name.replace(/[^a-zA-Z0-9_.-]/g, "").slice(0, 80) : "UnknownError";
+    console.error("[payments:reconcile] Could not verify a pending Stripe payment", errorName || "Error");
+    return false;
+  }
+}
+
+async function reconcileStripeTransactions(records: TransactionDocument[]) {
+  const candidates = records
+    .filter((record) => ["pending", "failed"].includes(record.status) && Boolean(record.providerSessionId))
+    .slice(0, 10);
+  if (!candidates.length) return false;
+  const results = await Promise.all(candidates.map((record) => reconcileStripeTransaction(record)));
+  return results.some(Boolean);
+}
+
+export async function reconcileCustomerAppointmentsPayments(customerId: string, appointmentIds: string[]) {
+  const ids = appointmentIds.filter((id) => Types.ObjectId.isValid(id)).slice(0, 10).map((id) => new Types.ObjectId(id));
+  if (!ids.length) return false;
+  const records = await Transaction.find({
+    customerId,
+    appointmentId: { $in: ids },
+    status: { $in: ["pending", "failed"] },
+    providerSessionId: { $type: "string" },
+  }).limit(10).lean().exec();
+  return reconcileStripeTransactions(records as unknown as TransactionDocument[]);
+}
+
 export async function listMyTransactions(customerId: string, page: number, limit: number) {
   const filter = { customerId };
-  const [records, total] = await Promise.all([
+  let [records, total] = await Promise.all([
     Transaction.find(filter).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean().exec(),
     Transaction.countDocuments(filter).exec(),
   ]);
+  const reconciled = await reconcileStripeTransactions(records as unknown as TransactionDocument[]);
+  if (reconciled) {
+    records = await Transaction.find(filter).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean().exec();
+  }
   return {
     transactions: records.map((record) => safeTransaction(record as unknown as TransactionDocument)),
     page,
@@ -200,7 +245,10 @@ export async function listMyTransactions(customerId: string, page: number, limit
 export async function getMyTransaction(customerId: string, id: string) {
   if (!Types.ObjectId.isValid(id)) return null;
   const record = await Transaction.findOne({ _id: id, customerId }).lean().exec();
-  return record ? safeTransaction(record as unknown as TransactionDocument) : null;
+  if (!record) return null;
+  await reconcileStripeTransaction(record as unknown as TransactionDocument);
+  const latest = await Transaction.findOne({ _id: id, customerId }).lean().exec();
+  return latest ? safeTransaction(latest as unknown as TransactionDocument) : null;
 }
 
 export async function getMyPaymentVerification(customerId: string, sessionId: string) {
@@ -211,9 +259,12 @@ export async function getMyPaymentVerification(customerId: string, sessionId: st
   try { session = await stripe.checkout.sessions.retrieve(sessionId); }
   catch { throw httpError(502, "Stripe could not verify this Checkout session. Try again shortly."); }
   assertSessionMatchesTransaction(session, transaction as unknown as TransactionDocument);
+  await reconcileStripeTransaction(transaction as unknown as TransactionDocument, session);
+  const latest = await Transaction.findOne({ providerSessionId: sessionId, customerId }).lean().exec();
+  if (!latest) return null;
   return {
-    transaction: safeTransaction(transaction as unknown as TransactionDocument),
-    paymentVerified: transaction.status === "paid" || transaction.status === "refunded",
+    transaction: safeTransaction(latest as unknown as TransactionDocument),
+    paymentVerified: latest.status === "paid" || latest.status === "refunded",
     stripeCheckoutStatus: session.status,
     stripePaymentStatus: session.payment_status,
   };
