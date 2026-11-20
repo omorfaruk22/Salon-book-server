@@ -1,6 +1,7 @@
 import { MongoClient } from "mongodb";
 import mongoose from "mongoose";
 import { env } from "./env";
+import { ensureAppointmentReservationIndex } from "../modules/appointments/appointment.model";
 
 const uri = env.MONGODB_URI;
 const databaseName = decodeURIComponent(new URL(uri).pathname.slice(1)) || "salonbook";
@@ -26,6 +27,7 @@ export async function connectDatabase() {
       await mongoClient.connect();
       await authDatabase.command({ ping: 1 });
       await mongoose.connect(uri, { dbName: databaseName, maxPoolSize: 10 });
+      await ensureAppointmentReservationIndex();
       databaseStatus = "connected";
       console.info(`Connected to MongoDB database: ${databaseName}`);
     } catch (error) {

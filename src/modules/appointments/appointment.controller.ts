@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { AuthenticatedRequest } from "../../middleware/authenticate";
-import { adminStatusSchema, createAppointmentSchema } from "./appointment.validation";
-import { cancelCustomerAppointment, confirmAppointment, getAppointment, isAppointmentId, listAdminAppointments, listCustomerAppointments, requestAppointment, setAdminStatus } from "./appointment.service";
+import { adminStatusSchema, appointmentAvailabilityQuerySchema, createAppointmentSchema } from "./appointment.validation";
+import { cancelCustomerAppointment, confirmAppointment, getAppointment, getAppointmentAvailability, isAppointmentId, listAdminAppointments, listCustomerAppointments, requestAppointment, setAdminStatus } from "./appointment.service";
 
 function errorStatus(error: unknown) { return typeof error === "object" && error !== null && "status" in error ? Number((error as { status: unknown }).status) : 500; }
 function message(error: unknown) { return error instanceof Error ? error.message : "Internal server error"; }
@@ -9,6 +9,13 @@ function idOrBadRequest(req: Request, res: Response) {
   const id = String(req.params.id);
   if (!isAppointmentId(id)) { res.status(400).json({ data: null, error: { message: "Invalid appointment id" } }); return null; }
   return id;
+}
+
+export async function availability(req: Request, res: Response, next: NextFunction) {
+  const parsed = appointmentAvailabilityQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ data: null, error: { message: parsed.error.issues.map((issue) => issue.message).join("; ") } });
+  try { return res.json({ data: await getAppointmentAvailability(parsed.data), error: null }); }
+  catch (error) { if (errorStatus(error) < 500) return res.status(errorStatus(error)).json({ data: null, error: { message: message(error) } }); next(error); }
 }
 
 export async function create(req: Request, res: Response, next: NextFunction) {
