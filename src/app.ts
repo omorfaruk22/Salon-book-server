@@ -8,6 +8,8 @@ import { errorHandler } from "./middleware/error-handler";
 import { notFoundHandler } from "./middleware/not-found";
 import { requestLogger } from "./middleware/request-logger";
 import { authenticate, requireRole } from "./middleware/authenticate";
+import { createRateLimiter, clientIdentity } from "./middleware/rate-limit";
+import { securityHeaders } from "./middleware/security-headers";
 import type { AuthenticatedRequest } from "./middleware/authenticate";
 import { healthRouter } from "./modules/health/health.routes";
 import { serviceRouter } from "./modules/services/service.routes";
@@ -25,6 +27,8 @@ import { adminDashboardRouter } from "./modules/admin-dashboard/admin-dashboard.
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
+  if (env.NODE_ENV === "production") app.set("trust proxy", 1);
+  app.use(securityHeaders(env.NODE_ENV === "production"));
   const allowedOrigins = new Set([env.CLIENT_ORIGIN]);
   app.use(cors({
     origin(origin, callback) {
@@ -39,7 +43,29 @@ export function createApp() {
   app.use(requestLogger);
   app.use(cookieParser());
   // Better Auth must run before express.json() so its request body remains readable.
-  app.all("/api/auth/*", toNodeHandler(auth));
+  const authApiLimit = createRateLimiter({ windowMs: 15 * 60_000, maxRequests: 300, keyGenerator: (req) => `auth:${clientIdentity(req)}` });
+  const credentialLoginLimit = createRateLimiter({
+    windowMs: 15 * 60_000,
+    maxRequests: 15,
+    keyGenerator: (req) => `login:${clientIdentity(req)}`,
+    skip: (req) => req.method !== "POST" || authEndpointPath(req.path) !== "/sign-in/email",
+    message: "Too many sign-in attempts. Wait 15 minutes and try again.",
+  });
+  const registrationLimit = createRateLimiter({
+    windowMs: 60 * 60_000,
+    maxRequests: 5,
+    keyGenerator: (req) => `registration:${clientIdentity(req)}`,
+    skip: (req) => req.method !== "POST" || authEndpointPath(req.path) !== "/sign-up/email",
+    message: "Too many registration attempts. Try again in an hour.",
+  });
+  const recoveryLimit = createRateLimiter({
+    windowMs: 60 * 60_000,
+    maxRequests: 5,
+    keyGenerator: (req) => `auth-recovery:${clientIdentity(req)}`,
+    skip: (req) => req.method !== "POST" || !/^\/(?:forget-password|reset-password|change-password|send-verification-email|send-otp)(?:\/|$)/.test(authEndpointPath(req.path)),
+    message: "Too many account-recovery requests. Try again in an hour.",
+  });
+  app.all("/api/auth/*", authApiLimit, credentialLoginLimit, registrationLimit, recoveryLimit, toNodeHandler(auth));
   app.post("/api/transactions/webhook", express.raw({ type: "application/json", limit: "1mb" }), webhook);
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));
@@ -60,4 +86,8 @@ export function createApp() {
   app.use(notFoundHandler);
   app.use(errorHandler);
   return app;
+}
+
+function authEndpointPath(path: string) {
+  return path.replace(/^\/api\/auth(?=\/|$)/, "");
 }

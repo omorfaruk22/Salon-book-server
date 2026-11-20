@@ -39,6 +39,6 @@ function publicMessage(error: ErrorWithStatus, status: number): string {
   if (error.code === 11000) return "A record with that unique value already exists";
   if (error.name === "ValidationError") return "Request validation failed";
   if (error.name === "CastError") return "Invalid record identifier";
-  if (status >= 500 && env.NODE_ENV === "production" && status !== 503) return "Internal server error";
+  if (status >= 500 && env.NODE_ENV === "production") return status === 503 ? "Service temporarily unavailable" : "Internal server error";
   return error.message || "Request failed";
 }

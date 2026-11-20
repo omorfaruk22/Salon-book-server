@@ -34,9 +34,11 @@ export async function list(req: Request, res: Response, next: NextFunction) {
 }
 
 export async function details(req: Request, res: Response, next: NextFunction) {
+  const id = String(req.params.id);
+  if (!/^[a-f\d]{24}$/i.test(id)) return res.status(400).json({ data: null, error: { message: "Invalid transaction id" } });
   try {
     const user = (req as AuthenticatedRequest).authUser!;
-    const transaction = await getMyTransaction(user.id, String(req.params.id));
+    const transaction = await getMyTransaction(user.id, id);
     if (!transaction) return res.status(404).json({ data: null, error: { message: "Transaction not found" } });
     return res.json({ data: transaction, error: null });
   } catch (error) { next(error); }
@@ -72,7 +74,8 @@ export async function webhook(req: Request, res: Response) {
   }
   try { await processStripeEvent(event); return res.json({ received: true }); }
   catch (error) {
-    console.error("[webhook:error] Stripe event processing failed", error instanceof Error ? error.message : "unknown error");
+    const errorName = error instanceof Error ? error.name.replace(/[^a-zA-Z0-9_.-]/g, "").slice(0, 80) : "UnknownError";
+    console.error("[webhook:error] Stripe event processing failed", errorName || "Error");
     return res.status(500).send("Webhook processing failed");
   }
 }

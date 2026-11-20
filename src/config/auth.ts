@@ -104,7 +104,9 @@ export const auth = betterAuth({
     jwt: {
       issuer: env.CLIENT_ORIGIN,
       audience: env.CLIENT_ORIGIN,
-      expirationTime: "15m",
+      // API requests exchange the cookie-backed session for a bearer JWT, so
+      // keep the residual access window after sign-out short.
+      expirationTime: "5m",
       definePayload: ({ user }) => ({ role: user.role === "admin" ? "admin" : "customer", name: user.name, email: user.email }),
     },
   })],

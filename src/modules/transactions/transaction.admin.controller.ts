@@ -15,8 +15,10 @@ export async function adminTransactionStatsController(_req: Request, res: Respon
 }
 
 export async function adminTransactionDetailsController(req: Request, res: Response, next: NextFunction) {
+  const id = String(req.params.id);
+  if (!/^[a-f\d]{24}$/i.test(id)) return res.status(400).json({ data: null, error: { message: "Invalid transaction id" } });
   try {
-    const transaction = await getAdminTransaction(String(req.params.id));
+    const transaction = await getAdminTransaction(id);
     if (!transaction) return res.status(404).json({ data: null, error: { message: "Transaction not found" } });
     return res.json({ data: transaction, error: null });
   } catch (error) { next(error); }

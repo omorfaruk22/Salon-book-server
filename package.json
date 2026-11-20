@@ -7,13 +7,13 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/admin-service-validation.test.ts tests/service-deletion.test.ts tests/admin-authorization.test.ts tests/admin-management-validation.test.ts tests/transaction-policy.test.ts tests/transaction-validation.test.ts tests/stripe-webhook-signature.test.ts",
+    "test": "tsx --test tests/admin-service-validation.test.ts tests/service-deletion.test.ts tests/admin-authorization.test.ts tests/admin-management-validation.test.ts tests/transaction-policy.test.ts tests/transaction-validation.test.ts tests/stripe-webhook-signature.test.ts tests/rate-limit.test.ts tests/security-headers.test.ts tests/image-upload-validation.test.ts tests/pagination-validation.test.ts tests/services/service-validation.test.ts tests/appointments/appointment-schedule.test.ts tests/appointments/customer-dashboard-validation.test.ts tests/admin-dashboard/admin-dashboard-validation.test.ts tests/admin-dashboard/admin-dashboard-access.test.ts",
     "admin:promote": "tsx src/scripts/promote-admin.ts",
     "seed:services": "tsx src/scripts/seed-services.ts"
   },
   "dependencies": {
     "@better-auth/mongo-adapter": "^1.7.25",
-    "better-auth": "^1.1.0",
+    "better-auth": "^1.7.25",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

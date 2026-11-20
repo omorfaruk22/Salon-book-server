@@ -30,7 +30,7 @@ export const updateServiceSchema = z.object({ ...serviceFields, isActive: z.bool
 export const serviceStatusSchema = z.object({ isActive: z.boolean() }).strict();
 
 const positiveIntegerQuery = z.string().regex(/^[1-9]\d*$/).transform(Number).refine(Number.isSafeInteger);
-const positivePageQuery = positiveIntegerQuery.refine((value) => (value - 1) * 48 <= Number.MAX_SAFE_INTEGER);
+const positivePageQuery = positiveIntegerQuery.refine((value) => value <= 10000 && (value - 1) * 48 <= Number.MAX_SAFE_INTEGER);
 
 export const adminServicesQuerySchema = z.object({
   search: z.string().trim().max(100).optional(),

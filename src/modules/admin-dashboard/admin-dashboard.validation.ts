@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 export const recentLimitQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(12).default(6),
+  limit: z.string().regex(/^[1-9]\d*$/).default("6").transform(Number).refine((value) => value <= 12),
 }).strict();
 
 export const appointmentAnalyticsQuerySchema = z.object({
-  days: z.coerce.number().int().min(7).max(90).default(30),
+  days: z.string().regex(/^[1-9]\d*$/).default("30").transform(Number).refine((value) => value >= 7 && value <= 90),
 }).strict();

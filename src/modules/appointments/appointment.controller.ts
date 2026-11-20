@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { AuthenticatedRequest } from "../../middleware/authenticate";
 import { appointmentAvailabilityQuerySchema, createAppointmentSchema, myAppointmentsQuerySchema } from "./appointment.validation";
-import { cancelCustomerAppointment, getAppointment, getAppointmentAvailability, getCustomerAppointmentStats, getMyAppointment, isAppointmentId, listCustomerAppointments, listMyAppointments, requestAppointment } from "./appointment.service";
+import { cancelCustomerAppointment, getAdminAppointment, getAppointmentAvailability, getCustomerAppointmentStats, getMyAppointment, isAppointmentId, listCustomerAppointments, listMyAppointments, requestAppointment } from "./appointment.service";
 
 function errorStatus(error: unknown) { return typeof error === "object" && error !== null && "status" in error ? Number((error as { status: unknown }).status) : 500; }
 function message(error: unknown) { return error instanceof Error ? error.message : "Internal server error"; }
@@ -57,10 +57,9 @@ export async function myAppointmentDetails(req: Request, res: Response, next: Ne
 export async function details(req: Request, res: Response, next: NextFunction) {
   const id = idOrBadRequest(req, res); if (!id) return;
   try {
-    const appointment = await getAppointment(id);
-    if (!appointment) return res.status(404).json({ data: null, error: { message: "Appointment not found" } });
     const user = (req as AuthenticatedRequest).authUser!;
-    if (user.role !== "admin" && appointment.customerId !== user.id) return res.status(403).json({ data: null, error: { message: "You cannot view this appointment" } });
+    const appointment = user.role === "admin" ? await getAdminAppointment(id) : await getMyAppointment(user.id, id);
+    if (!appointment) return res.status(404).json({ data: null, error: { message: "Appointment not found" } });
     return res.json({ data: appointment, error: null });
   } catch (error) { next(error); }
 }

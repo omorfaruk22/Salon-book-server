@@ -1,6 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
 import { authenticate, requireRole } from "../../middleware/authenticate";
+import { authenticatedIdentity, createRateLimiter } from "../../middleware/rate-limit";
 import { uploadImage } from "./upload.controller";
 import { ACCEPTED_IMAGE_TYPES, MAX_IMAGE_BYTES } from "./image-upload.validation";
 
@@ -25,7 +26,8 @@ function parseSingleImage(req: Request, res: Response, next: NextFunction) {
 }
 
 export const uploadRouter = Router();
-uploadRouter.post("/image", authenticate, requireRole("admin"), parseSingleImage, uploadImage);
+const imageUploadLimit = createRateLimiter({ windowMs: 15 * 60_000, maxRequests: 12, keyGenerator: (req) => `image-upload:${authenticatedIdentity(req)}`, message: "Too many image uploads. Please wait before trying again." });
+uploadRouter.post("/image", authenticate, requireRole("admin"), imageUploadLimit, parseSingleImage, uploadImage);
 // The shared ImgBB utility also supports profile uploads. This separate route keeps
 // service-image uploads restricted to Admins while preserving customer profiles.
-uploadRouter.post("/profile-image", authenticate, requireRole("admin", "customer"), parseSingleImage, uploadImage);
+uploadRouter.post("/profile-image", authenticate, requireRole("admin", "customer"), imageUploadLimit, parseSingleImage, uploadImage);

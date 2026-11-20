@@ -9,7 +9,7 @@ const dateQuery = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
 });
 
 export const transactionListQuerySchema = z.object({
-  page: z.string().default("1").pipe(positiveInteger),
+  page: z.string().default("1").pipe(positiveInteger.refine((value) => value <= 10000)),
   limit: z.string().default("25").pipe(positiveInteger.refine((value) => value <= 50)),
 }).strict();
 
@@ -19,7 +19,7 @@ export const adminTransactionsQuerySchema = z.object({
   dateFrom: dateQuery.optional(),
   dateTo: dateQuery.optional(),
   sort: z.enum(["newest", "oldest"]).default("newest"),
-  page: z.string().default("1").pipe(positiveInteger),
+  page: z.string().default("1").pipe(positiveInteger.refine((value) => value <= 10000)),
   limit: z.string().default("25").pipe(positiveInteger.refine((value) => value <= 50)),
 }).strict().superRefine((query, context) => {
   if (query.dateFrom && query.dateTo && query.dateFrom > query.dateTo) {

@@ -1,5 +1,4 @@
 import type { NextFunction, Request, Response } from "express";
-import { isValidObjectId } from "mongoose";
 import { browseServices, createService, deleteService, getActiveServiceById, getServiceById, listAllServices, setServiceStatus, updateService } from "./service.service";
 import { adminServicesQuerySchema, browseServicesQuerySchema, createServiceSchema, isMongoObjectId, serviceStatusSchema, updateServiceSchema } from "./service.validation";
 
@@ -69,7 +68,7 @@ export async function create(req: Request, res: Response, next: NextFunction) {
 
 export async function update(req: Request, res: Response, next: NextFunction) {
   const id = String(req.params.id);
-  if (!isValidObjectId(id)) return badRequest(res, "Invalid service id");
+  if (!isMongoObjectId(id)) return badRequest(res, "Invalid service id");
   const parsed = updateServiceSchema.safeParse(req.body);
   if (!parsed.success) return badRequest(res, parsed.error.issues.map((issue) => issue.message).join("; "));
   try {
@@ -81,7 +80,7 @@ export async function update(req: Request, res: Response, next: NextFunction) {
 
 export async function updateStatus(req: Request, res: Response, next: NextFunction) {
   const id = String(req.params.id);
-  if (!isValidObjectId(id)) return badRequest(res, "Invalid service id");
+  if (!isMongoObjectId(id)) return badRequest(res, "Invalid service id");
   const parsed = serviceStatusSchema.safeParse(req.body);
   if (!parsed.success) return badRequest(res, "isActive must be true or false");
   try {
@@ -93,7 +92,7 @@ export async function updateStatus(req: Request, res: Response, next: NextFuncti
 
 export async function remove(req: Request, res: Response, next: NextFunction) {
   const id = String(req.params.id);
-  if (!isValidObjectId(id)) return badRequest(res, "Invalid service id");
+  if (!isMongoObjectId(id)) return badRequest(res, "Invalid service id");
   try {
     const service = await deleteService(id);
     if (!service) return res.status(404).json({ data: null, error: { message: "Service not found" } });

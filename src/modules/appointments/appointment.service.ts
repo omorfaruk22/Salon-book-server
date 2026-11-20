@@ -288,7 +288,9 @@ export async function cancelCustomerAppointment(id: string, customerId: string) 
 
   const existing = await Appointment.findById(id).select("customerId status").lean().exec();
   if (!existing) throw httpError(404, "Appointment not found");
-  if (existing.customerId !== customerId) throw httpError(403, "You cannot cancel another customer’s appointment");
+  // Return the same status for an unknown ID and another customer's record so
+  // appointment existence cannot be discovered by changing the URL.
+  if (existing.customerId !== customerId) throw httpError(404, "Appointment not found");
   if (existing.status === "cancelled") throw httpError(409, "This appointment is already cancelled");
   throw httpError(409, "Only pending appointments can be cancelled");
 }
