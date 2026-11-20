@@ -2,6 +2,7 @@ import { MongoClient } from "mongodb";
 import mongoose from "mongoose";
 import { env } from "./env";
 import { ensureAppointmentReservationIndex } from "../modules/appointments/appointment.model";
+import { ensureTransactionIndexes } from "../modules/transactions/transaction.model";
 
 const uri = env.MONGODB_URI;
 const databaseName = decodeURIComponent(new URL(uri).pathname.slice(1)) || "salonbook";
@@ -28,6 +29,7 @@ export async function connectDatabase() {
       await authDatabase.command({ ping: 1 });
       await mongoose.connect(uri, { dbName: databaseName, maxPoolSize: 10 });
       await ensureAppointmentReservationIndex();
+      await ensureTransactionIndexes();
       databaseStatus = "connected";
       console.info(`Connected to MongoDB database: ${databaseName}`);
     } catch (error) {

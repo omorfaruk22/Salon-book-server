@@ -16,6 +16,7 @@ import { adminAppointmentRouter } from "./modules/appointments/appointment.admin
 import { userRouter } from "./modules/users/user.routes";
 import { adminUserRouter } from "./modules/users/user.admin.routes";
 import { transactionRouter } from "./modules/transactions/transaction.routes";
+import { adminTransactionRouter } from "./modules/transactions/transaction.admin.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
 import { webhook } from "./modules/transactions/transaction.controller";
 import { uploadRouter } from "./modules/uploads/upload.routes";
@@ -51,6 +52,7 @@ export function createApp() {
   app.use("/api/admin/appointments", adminAppointmentRouter);
   app.use("/api/users", userRouter);
   app.use("/api/admin/users", adminUserRouter);
+  app.use("/api/admin/transactions", adminTransactionRouter);
   app.use("/api/transactions", transactionRouter);
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/admin/dashboard", adminDashboardRouter);
