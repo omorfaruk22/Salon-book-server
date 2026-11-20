@@ -7,6 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/admin-service-validation.test.ts tests/service-deletion.test.ts tests/admin-authorization.test.ts",
     "admin:promote": "tsx src/scripts/promote-admin.ts",
     "seed:services": "tsx src/scripts/seed-services.ts"
   },
@@ -21,6 +22,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^7.9.0",
     "mongoose": "^8.9.5",
+    "multer": "^2.5.0",
     "stripe": "^17.5.0",
     "zod": "^4.6.7"
   },
@@ -29,6 +31,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.7",
+    "@types/multer": "^2.3.0",
     "@types/node": "^22.10.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"

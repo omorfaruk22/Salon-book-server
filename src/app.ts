@@ -38,7 +38,6 @@ export function createApp() {
   // Better Auth must run before express.json() so its request body remains readable.
   app.all("/api/auth/*", toNodeHandler(auth));
   app.post("/api/transactions/webhook", express.raw({ type: "application/json", limit: "1mb" }), webhook);
-  app.use("/api/uploads", express.json({ limit: "8mb" }));
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));
   app.use("/api/health", healthRouter);
