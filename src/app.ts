@@ -17,6 +17,7 @@ import { transactionRouter } from "./modules/transactions/transaction.routes";
 import { dashboardRouter } from "./modules/dashboard/dashboard.routes";
 import { webhook } from "./modules/transactions/transaction.controller";
 import { uploadRouter } from "./modules/uploads/upload.routes";
+import { adminDashboardRouter } from "./modules/admin-dashboard/admin-dashboard.routes";
 
 export function createApp() {
   const app = express();
@@ -49,6 +50,7 @@ export function createApp() {
   app.use("/api/users", userRouter);
   app.use("/api/transactions", transactionRouter);
   app.use("/api/dashboard", dashboardRouter);
+  app.use("/api/admin/dashboard", adminDashboardRouter);
   app.use("/api/uploads", uploadRouter);
   app.use(notFoundHandler);
   app.use(errorHandler);
