@@ -27,8 +27,8 @@ export async function browseServices(query: BrowseServicesQuery) {
   return { services, total, activeTotal, categories: categoryDocs.sort() };
 }
 
-export async function getActiveService(slug: string) {
-  return Service.findOne({ slug, isActive: true }).lean();
+export async function getActiveServiceById(id: string) {
+  return Service.findOne({ _id: id, isActive: true }).lean();
 }
 
 export async function listAllServices() {

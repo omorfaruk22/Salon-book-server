@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { browseServicesQuerySchema } from "../../src/modules/services/service.validation";
+import { browseServicesQuerySchema, isMongoObjectId } from "../../src/modules/services/service.validation";
+
+test("accepts only 24-character hexadecimal MongoDB ObjectIds", () => {
+  assert.equal(isMongoObjectId("507f1f77bcf86cd799439011"), true);
+  assert.equal(isMongoObjectId("507F1F77BCF86CD799439011"), true);
+  assert.equal(isMongoObjectId("507f1f77bcf86cd79943901"), false);
+  assert.equal(isMongoObjectId("507f1f77bcf86cd79943901z"), false);
+  assert.equal(isMongoObjectId("abcdefghijkl"), false);
+});
 
 test("uses safe default browsing options", () => {
   const result = browseServicesQuerySchema.parse({});

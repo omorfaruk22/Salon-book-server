@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export function isMongoObjectId(value: string) {
+  return /^[a-f\d]{24}$/i.test(value);
+}
+
 const serviceFields = {
   name: z.string().trim().min(2).max(100),
   description: z.string().trim().min(10).max(2000),

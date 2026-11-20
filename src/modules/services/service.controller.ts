@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { isValidObjectId } from "mongoose";
-import { browseServices, createService, deleteService, getActiveService, listAllServices, setServiceStatus, updateService } from "./service.service";
-import { browseServicesQuerySchema, createServiceSchema, serviceStatusSchema, updateServiceSchema } from "./service.validation";
+import { browseServices, createService, deleteService, getActiveServiceById, listAllServices, setServiceStatus, updateService } from "./service.service";
+import { browseServicesQuerySchema, createServiceSchema, isMongoObjectId, serviceStatusSchema, updateServiceSchema } from "./service.validation";
 
 function badRequest(res: Response, message: string) {
   return res.status(400).json({ data: null, error: { message } });
@@ -24,8 +24,10 @@ export async function browse(req: Request, res: Response, next: NextFunction) {
 }
 
 export async function details(req: Request, res: Response, next: NextFunction) {
+  const id = String(req.params.id);
+  if (!isMongoObjectId(id)) return badRequest(res, "Invalid service id");
   try {
-    const service = await getActiveService(String(req.params.slug));
+    const service = await getActiveServiceById(id);
     if (!service) return res.status(404).json({ data: null, error: { message: "Service not found" } });
     return res.json({ data: service, error: null });
   } catch (error) { next(error); }

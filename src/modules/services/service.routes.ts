@@ -5,7 +5,7 @@ import { adminList, browse, create, details, remove, update, updateStatus } from
 export const serviceRouter = Router();
 serviceRouter.get("/", browse);
 serviceRouter.get("/admin", authenticate, requireRole("admin"), adminList);
-serviceRouter.get("/:slug", details);
+serviceRouter.get("/:id", details);
 serviceRouter.post("/", authenticate, requireRole("admin"), create);
 serviceRouter.patch("/:id/status", authenticate, requireRole("admin"), updateStatus);
 serviceRouter.patch("/:id", authenticate, requireRole("admin"), update);
