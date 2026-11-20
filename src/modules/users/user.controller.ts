@@ -7,7 +7,7 @@ import { updateProfileSchema, userStatusSchema } from "./user.validation";
 export async function getMe(req: Request, res: Response, next: NextFunction) {
   try {
     const authUser = (req as AuthenticatedRequest).authUser!;
-    const user = await User.findOne({ authUserId: authUser.id }).select("name email phone role status createdAt").lean();
+    const user = await User.findOne({ authUserId: authUser.id }).select("name email phone imageUrl role status createdAt").lean();
     if (!user) return res.status(404).json({ data: null, error: { message: "Profile not found" } });
     return res.json({ data: user, error: null });
   } catch (error) { next(error); }
@@ -18,7 +18,7 @@ export async function updateMe(req: Request, res: Response, next: NextFunction) 
   if (!parsed.success) return res.status(400).json({ data: null, error: { message: parsed.error.issues.map((issue) => issue.message).join("; ") } });
   try {
     const authUser = (req as AuthenticatedRequest).authUser!;
-    const user = await User.findOneAndUpdate({ authUserId: authUser.id }, { $set: parsed.data }, { new: true, runValidators: true }).select("name email phone role status createdAt").lean();
+    const user = await User.findOneAndUpdate({ authUserId: authUser.id }, { $set: parsed.data }, { new: true, runValidators: true }).select("name email phone imageUrl role status createdAt").lean();
     if (!user) return res.status(404).json({ data: null, error: { message: "Profile not found" } });
     return res.json({ data: user, error: null });
   } catch (error) { next(error); }

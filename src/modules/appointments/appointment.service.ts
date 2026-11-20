@@ -85,7 +85,14 @@ export async function requestAppointment(customerId: string, input: { serviceId:
     return await Appointment.create({
       customerId,
       serviceId: service._id,
-      serviceSnapshot: { name: service.name, durationMinutes: service.durationMinutes, price: service.price },
+      serviceSnapshot: {
+        name: service.name,
+        category: service.category,
+        description: service.description,
+        imageUrl: service.imageUrl,
+        durationMinutes: service.durationMinutes,
+        price: service.price,
+      },
       appointmentDate: input.appointmentDate,
       timeSlot,
       startsAt,
@@ -103,6 +110,73 @@ export async function requestAppointment(customerId: string, input: { serviceId:
 
 export async function listCustomerAppointments(customerId: string) {
   return Appointment.find({ customerId }).sort({ startsAt: -1 }).lean();
+}
+
+export async function getCustomerAppointmentStats(customerId: string) {
+  const [stats] = await Appointment.aggregate<{
+    totalAppointments: number;
+    pendingAppointments: number;
+    confirmedAppointments: number;
+    cancelledAppointments: number;
+  }>([
+    { $match: { customerId } },
+    { $group: {
+      _id: null,
+      totalAppointments: { $sum: 1 },
+      pendingAppointments: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
+      confirmedAppointments: { $sum: { $cond: [{ $eq: ["$status", "confirmed"] }, 1, 0] } },
+      cancelledAppointments: { $sum: { $cond: [{ $eq: ["$status", "cancelled"] }, 1, 0] } },
+    } },
+    { $project: { _id: 0, totalAppointments: 1, pendingAppointments: 1, confirmedAppointments: 1, cancelledAppointments: 1 } },
+  ]).exec();
+  return stats ?? { totalAppointments: 0, pendingAppointments: 0, confirmedAppointments: 0, cancelledAppointments: 0 };
+}
+
+export async function listMyAppointments(customerId: string, input: { status?: "pending" | "confirmed" | "cancelled"; search: string; sort: "newest" | "oldest"; page: number; limit: number }) {
+  const filter: Record<string, unknown> = { customerId };
+  if (input.status) filter.status = input.status;
+  if (input.search) {
+    const escapedSearch = input.search.replace(/[.*+?^$()|[\]{}\\]/g, "\\$&");
+    const searchConditions: Record<string, unknown>[] = [{ "serviceSnapshot.name": { $regex: escapedSearch, $options: "i" } }];
+    if (isAppointmentId(input.search)) searchConditions.push({ _id: new Types.ObjectId(input.search) });
+    filter.$or = searchConditions;
+  }
+  const direction = input.sort === "oldest" ? 1 : -1;
+  const [appointments, total] = await Promise.all([
+    Appointment.find(filter).sort({ createdAt: direction, _id: direction }).skip((input.page - 1) * input.limit).limit(input.limit).lean().exec(),
+    Appointment.countDocuments(filter).exec(),
+  ]);
+  const enrichedAppointments = await enrichAppointmentServiceSnapshots(appointments as unknown as (AppointmentRecord & { _id: Types.ObjectId })[]);
+  return { appointments: enrichedAppointments, total, page: input.page, limit: input.limit, totalPages: Math.ceil(total / input.limit) };
+}
+
+export async function getMyAppointment(customerId: string, id: string) {
+  const appointment = await Appointment.findOne({ _id: id, customerId }).lean().exec() as unknown as (AppointmentRecord & { _id: Types.ObjectId }) | null;
+  if (!appointment) return null;
+  const [enriched] = await enrichAppointmentServiceSnapshots([appointment]);
+  return enriched;
+}
+
+async function enrichAppointmentServiceSnapshots(appointments: (AppointmentRecord & { _id: Types.ObjectId })[]) {
+  const serviceIds = [...new Set(appointments
+    .filter(({ serviceSnapshot }) => !serviceSnapshot.category || serviceSnapshot.description === undefined || serviceSnapshot.imageUrl === undefined)
+    .map(({ serviceId }) => String(serviceId)))];
+  const services = serviceIds.length
+    ? await Service.find({ _id: { $in: serviceIds } }).select("category description imageUrl").lean().exec()
+    : [];
+  const servicesById = new Map(services.map((service) => [String(service._id), service]));
+  return appointments.map((appointment) => {
+    const service = servicesById.get(String(appointment.serviceId));
+    return {
+      ...appointment,
+      serviceSnapshot: {
+        ...appointment.serviceSnapshot,
+        category: appointment.serviceSnapshot.category ?? service?.category ?? "Salon service",
+        description: appointment.serviceSnapshot.description ?? service?.description ?? "Service information is no longer available.",
+        imageUrl: appointment.serviceSnapshot.imageUrl ?? service?.imageUrl,
+      },
+    };
+  });
 }
 
 export async function listAdminAppointments(status?: string) {

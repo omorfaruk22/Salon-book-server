@@ -13,4 +13,12 @@ export const appointmentAvailabilityQuerySchema = z.object({
   date: z.string().refine(isValidAppointmentDate, "Choose a valid appointment date"),
 }).strict();
 
+export const myAppointmentsQuerySchema = z.object({
+  status: z.enum(["pending", "confirmed", "cancelled"]).optional(),
+  search: z.string().trim().max(100).default(""),
+  sort: z.enum(["newest", "oldest"]).default("newest"),
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+}).strict();
+
 export const adminStatusSchema = z.object({ status: z.enum(["cancelled", "completed"]) }).strict();

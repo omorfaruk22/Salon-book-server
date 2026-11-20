@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { AuthenticatedRequest } from "../../middleware/authenticate";
-import { adminStatusSchema, appointmentAvailabilityQuerySchema, createAppointmentSchema } from "./appointment.validation";
-import { cancelCustomerAppointment, confirmAppointment, getAppointment, getAppointmentAvailability, isAppointmentId, listAdminAppointments, listCustomerAppointments, requestAppointment, setAdminStatus } from "./appointment.service";
+import { adminStatusSchema, appointmentAvailabilityQuerySchema, createAppointmentSchema, myAppointmentsQuerySchema } from "./appointment.validation";
+import { cancelCustomerAppointment, confirmAppointment, getAppointment, getAppointmentAvailability, getCustomerAppointmentStats, getMyAppointment, isAppointmentId, listAdminAppointments, listCustomerAppointments, listMyAppointments, requestAppointment, setAdminStatus } from "./appointment.service";
 
 function errorStatus(error: unknown) { return typeof error === "object" && error !== null && "status" in error ? Number((error as { status: unknown }).status) : 500; }
 function message(error: unknown) { return error instanceof Error ? error.message : "Internal server error"; }
@@ -30,6 +30,28 @@ export async function create(req: Request, res: Response, next: NextFunction) {
 
 export async function mine(req: Request, res: Response, next: NextFunction) {
   try { return res.json({ data: await listCustomerAppointments((req as AuthenticatedRequest).authUser!.id), error: null }); } catch (error) { next(error); }
+}
+
+export async function myStats(req: Request, res: Response, next: NextFunction) {
+  try { return res.json({ data: await getCustomerAppointmentStats((req as AuthenticatedRequest).authUser!.id), error: null }); } catch (error) { next(error); }
+}
+
+export async function myAppointments(req: Request, res: Response, next: NextFunction) {
+  const parsed = myAppointmentsQuerySchema.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ data: null, error: { message: parsed.error.issues.map((issue) => issue.message).join("; ") } });
+  try {
+    const result = await listMyAppointments((req as AuthenticatedRequest).authUser!.id, parsed.data);
+    return res.json({ data: result.appointments, error: null, meta: { page: result.page, limit: result.limit, total: result.total, totalPages: result.totalPages } });
+  } catch (error) { next(error); }
+}
+
+export async function myAppointmentDetails(req: Request, res: Response, next: NextFunction) {
+  const id = idOrBadRequest(req, res); if (!id) return;
+  try {
+    const appointment = await getMyAppointment((req as AuthenticatedRequest).authUser!.id, id);
+    if (!appointment) return res.status(404).json({ data: null, error: { message: "Appointment not found" } });
+    return res.json({ data: appointment, error: null });
+  } catch (error) { next(error); }
 }
 
 export async function all(req: Request, res: Response, next: NextFunction) {

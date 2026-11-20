@@ -5,6 +5,6 @@ import { getMe, listCustomers, setCustomerStatus, updateMe } from "./user.contro
 export const userRouter = Router();
 userRouter.use(authenticate);
 userRouter.get("/me", getMe);
-userRouter.patch("/me", updateMe);
+userRouter.patch("/me", requireRole("customer"), updateMe);
 userRouter.get("/", requireRole("admin"), listCustomers);
 userRouter.patch("/:id/status", requireRole("admin"), setCustomerStatus);

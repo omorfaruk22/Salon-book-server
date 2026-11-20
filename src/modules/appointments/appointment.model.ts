@@ -6,7 +6,7 @@ export type AppointmentPaymentStatus = "unpaid" | "paid";
 export interface AppointmentRecord {
   customerId: string;
   serviceId: Schema.Types.ObjectId;
-  serviceSnapshot: { name: string; durationMinutes: number; price: number };
+  serviceSnapshot: { name: string; category?: string; description?: string; imageUrl?: string; durationMinutes: number; price: number };
   startsAt: Date;
   /** Salon-local calendar date and configured slot start; startsAt remains the UTC instant used by existing features. */
   appointmentDate?: string;
@@ -28,6 +28,9 @@ const appointmentSchema = new Schema<AppointmentRecord>(
     serviceId: { type: Schema.Types.ObjectId, ref: "Service", required: true, index: true },
     serviceSnapshot: {
       name: { type: String, required: true },
+      category: { type: String, trim: true, maxlength: 60 },
+      description: { type: String, trim: true, maxlength: 2000 },
+      imageUrl: { type: String, trim: true, maxlength: 2048 },
       durationMinutes: { type: Number, required: true, min: 5 },
       price: { type: Number, required: true, min: 0.01 },
     },
