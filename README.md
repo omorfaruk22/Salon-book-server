@@ -4,7 +4,7 @@ SalonBook Server is the TypeScript REST API for the SalonBook appointment platfo
 
 ## Features
 
-- Public service browsing and Admin-only service management.
+- Public service browsing, signed-in service details, and Admin-only service management.
 - Customer appointment requests, availability, cancellation, and booking history.
 - Admin appointment, customer, dashboard, and transaction management.
 - Better Auth email/password sign-in with optional Google OAuth.
@@ -115,7 +115,7 @@ All routes use the /api prefix. Protected endpoints require a valid Better Auth 
 | Method | Endpoint | Access | Purpose |
 | --- | --- | --- | --- |
 | GET | /api/services | Public | Search, filter, sort, paginate active services |
-| GET | /api/services/:id | Public | Read service details |
+| GET | /api/services/:id | Authenticated | Read active service details |
 | GET | /api/services/admin | Admin | List services, including inactive ones |
 | GET | /api/services/admin/:id | Admin | Read service for editing |
 | POST | /api/services | Admin | Create service |

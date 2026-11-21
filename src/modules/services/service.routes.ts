@@ -6,7 +6,7 @@ export const serviceRouter = Router();
 serviceRouter.get("/", browse);
 serviceRouter.get("/admin", authenticate, requireRole("admin"), adminList);
 serviceRouter.get("/admin/:id", authenticate, requireRole("admin"), adminDetails);
-serviceRouter.get("/:id", details);
+serviceRouter.get("/:id", authenticate, details);
 serviceRouter.post("/", authenticate, requireRole("admin"), create);
 serviceRouter.patch("/:id/status", authenticate, requireRole("admin"), updateStatus);
 serviceRouter.patch("/:id", authenticate, requireRole("admin"), update);
