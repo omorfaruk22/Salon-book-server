@@ -79,9 +79,20 @@ The API listens on http://localhost:4000 by default.
 | STRIPE_SECRET_KEY | No for startup | Required to create Stripe Checkout sessions; keep private |
 | STRIPE_WEBHOOK_SECRET | No for startup | Signing secret for the configured webhook; keep private |
 | IMGBB_API_KEY | No for startup | Enables image upload; keep private |
-| GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET | Optional pair | Set both to enable Google OAuth; keep the secret private |
+| GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET | Optional pair | Set both on the API host to enable Google OAuth; keep the secret private |
 
 The example file includes localhost defaults. In production use the deployed HTTPS client/API origins. The client proxies /api/* to this API so Better Auth cookies remain first-party. Never place server secrets in frontend variables.
+
+### Google OAuth provider setup
+
+Create an OAuth 2.0 Client ID of type **Web application** in Google Cloud Console. Register these authorized JavaScript origins and redirect URIs:
+
+| Environment | Authorized origin | Authorized redirect URI |
+| --- | --- | --- |
+| Production | `https://salon-book-client-8wvq.vercel.app` | `https://salon-book-client-8wvq.vercel.app/api/auth/callback/google` |
+| Local | `http://localhost:3000` | `http://localhost:3000/api/auth/callback/google` |
+
+Add the generated `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to the Render `salonbook-server` service environment, then redeploy the API. Do not put either value in a `NEXT_PUBLIC_*` variable. The Google callback uses the client origin because the client proxies `/api/auth/*` to the API.
 
 ## REST API
 
