@@ -44,13 +44,6 @@ export function createApp() {
   app.use(cookieParser());
   // Better Auth must run before express.json() so its request body remains readable.
   const authApiLimit = createRateLimiter({ windowMs: 15 * 60_000, maxRequests: 300, keyGenerator: (req) => `auth:${clientIdentity(req)}` });
-  const credentialLoginLimit = createRateLimiter({
-    windowMs: 15 * 60_000,
-    maxRequests: 15,
-    keyGenerator: (req) => `login:${clientIdentity(req)}`,
-    skip: (req) => req.method !== "POST" || authEndpointPath(req.path) !== "/sign-in/email",
-    message: "Too many sign-in attempts. Wait 15 minutes and try again.",
-  });
   const registrationLimit = createRateLimiter({
     windowMs: 60 * 60_000,
     maxRequests: 5,
@@ -65,7 +58,10 @@ export function createApp() {
     skip: (req) => req.method !== "POST" || !/^\/(?:forget-password|reset-password|change-password|send-verification-email|send-otp)(?:\/|$)/.test(authEndpointPath(req.path)),
     message: "Too many account-recovery requests. Try again in an hour.",
   });
-  app.all("/api/auth/*", authApiLimit, credentialLoginLimit, registrationLimit, recoveryLimit, toNodeHandler(auth));
+  // Better Auth applies its short, per-login endpoint limit. Avoid a second
+  // 15-minute Express IP lockout here: requests reach Render through Vercel,
+  // so req.ip can identify a shared proxy instead of an individual visitor.
+  app.all("/api/auth/*", authApiLimit, registrationLimit, recoveryLimit, toNodeHandler(auth));
   app.post("/api/transactions/webhook", express.raw({ type: "application/json", limit: "1mb" }), webhook);
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));

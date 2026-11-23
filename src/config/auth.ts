@@ -27,6 +27,12 @@ export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   database: mongodbAdapter(authDatabase),
   trustedOrigins: [env.CLIENT_ORIGIN],
+  rateLimit: {
+    enabled: true,
+    customRules: {
+      "/sign-in/email": { window: 10, max: 3 },
+    },
+  },
   emailAndPassword: { enabled: true, minPasswordLength: 8, maxPasswordLength: 128, autoSignIn: true },
   session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 12 },
   advanced: {
