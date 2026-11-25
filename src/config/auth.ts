@@ -36,11 +36,12 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: true, minPasswordLength: 8, maxPasswordLength: 128, autoSignIn: true },
   session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 12 },
   advanced: {
-    // The client calls auth through Vercel's external rewrite. Render's
-    // req.ip can identify the shared proxy; Vercel supplies the original
-    // visitor address separately for Better Auth's per-IP rate limits.
+    // Auth requests reach Render through Vercel's external rewrite. Prefer
+    // Vercel's client-IP header, then accept its standard forwarded-IP
+    // fallbacks. Without a usable header Better Auth shares one rate-limit
+    // bucket across visitors, which can lock out unrelated users.
     ipAddress: {
-      ipAddressHeaders: ["x-vercel-forwarded-for"],
+      ipAddressHeaders: ["x-vercel-forwarded-for", "x-forwarded-for", "x-real-ip"],
     },
     // Vercel and Render are different sites. Production fetch-based auth needs
     // SameSite=None cookies; local development stays on the safer Lax default.
