@@ -91,6 +91,11 @@ function authEndpointPath(path: string) {
 function requireTrustedAuthClientIp(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (env.NODE_ENV !== "production") return next();
 
+  // JWKS only publishes the public keys used to verify JWTs. Render fetches
+  // this endpoint through the frontend rewrite, so that server-to-server
+  // request has no end-user IP header and must remain publicly readable.
+  if (authEndpointPath(req.path) === "/jwks") return next();
+
   // Vercel's external rewrite can forward its platform IP header without
   // forwarding headers added by Next middleware. Prefer the normalized
   // middleware header, then normalize Vercel's own single-client header here.
