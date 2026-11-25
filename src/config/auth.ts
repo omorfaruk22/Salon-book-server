@@ -36,10 +36,10 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: true, minPasswordLength: 8, maxPasswordLength: 128, autoSignIn: true },
   session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 12 },
   advanced: {
-    // Vercel middleware overwrites this header from its platform-managed
-    // x-vercel-forwarded-for value before the external rewrite reaches Render.
-    // Trust only that normalized header; forwarded-for chains can otherwise
-    // make Better Auth fall back to a single shared rate-limit bucket.
+    // Express validates and normalizes Vercel's platform-managed
+    // x-vercel-forwarded-for header into this single-IP header before Better
+    // Auth runs. Multi-hop forwarded-for chains otherwise fall back to one
+    // shared rate-limit bucket and can lock unrelated visitors out.
     ipAddress: {
       ipAddressHeaders: ["x-salonbook-client-ip"],
     },

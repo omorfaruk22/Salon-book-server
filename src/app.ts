@@ -91,8 +91,21 @@ function authEndpointPath(path: string) {
 function requireTrustedAuthClientIp(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (env.NODE_ENV !== "production") return next();
 
-  const clientIp = req.get("x-salonbook-client-ip")?.trim();
-  if (clientIp && isIP(clientIp) !== 0) return next();
+  // Vercel's external rewrite can forward its platform IP header without
+  // forwarding headers added by Next middleware. Prefer the normalized
+  // middleware header, then normalize Vercel's own single-client header here.
+  const clientIp = [
+    req.get("x-salonbook-client-ip"),
+    req.get("x-vercel-forwarded-for"),
+  ]
+    .map((value) => value?.split(",", 1)[0]?.trim())
+    .find((value): value is string => Boolean(value && isIP(value) !== 0));
+
+  if (clientIp) {
+    // Better Auth must see one validated address, never the whole proxy chain.
+    req.headers["x-salonbook-client-ip"] = clientIp;
+    return next();
+  }
 
   // Do not let unidentified production traffic consume Better Auth's shared
   // per-path bucket and lock out every visitor behind the same proxy.
