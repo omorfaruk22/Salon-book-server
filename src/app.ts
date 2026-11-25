@@ -1,6 +1,7 @@
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import express from "express";
+import { isIP } from "node:net";
 import { toNodeHandler } from "better-auth/node";
 import { env } from "./config/env";
 import { auth } from "./config/auth";
@@ -60,7 +61,7 @@ export function createApp() {
   // Let Better Auth apply its short global and per-endpoint auth limits. Avoid
   // an extra 15-minute Express IP-wide lockout because Render requests arrive
   // through Vercel, where req.ip can be shared by unrelated visitors.
-  app.all("/api/auth/*", registrationLimit, recoveryLimit, toNodeHandler(auth));
+  app.all("/api/auth/*", registrationLimit, recoveryLimit, requireTrustedAuthClientIp, toNodeHandler(auth));
   app.post("/api/transactions/webhook", express.raw({ type: "application/json", limit: "1mb" }), webhook);
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));
@@ -85,4 +86,18 @@ export function createApp() {
 
 function authEndpointPath(path: string) {
   return path.replace(/^\/api\/auth(?=\/|$)/, "");
+}
+
+function requireTrustedAuthClientIp(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (env.NODE_ENV !== "production") return next();
+
+  const clientIp = req.get("x-salonbook-client-ip")?.trim();
+  if (clientIp && isIP(clientIp) !== 0) return next();
+
+  // Do not let unidentified production traffic consume Better Auth's shared
+  // per-path bucket and lock out every visitor behind the same proxy.
+  console.warn("[auth] request rejected: trusted client IP header is missing or invalid");
+  return res.status(503).json({
+    message: "Authentication is temporarily unavailable. Please try again shortly.",
+  });
 }
